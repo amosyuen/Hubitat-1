@@ -503,11 +503,12 @@ def initialize() {
       if ((state."parameter${i}value" != ((settings."parameter${i}"!=null||calculateParameter(i)!=null)? calculateParameter(i).toInteger() : getParameterInfo(i, "default").toInteger()))){
           //if (infoEnable) log.info "Parameter $i is not set correctly. Setting it to ${settings."parameter${i}"!=null? calculateParameter(i).toInteger() : getParameterInfo(i, "default").toInteger()}."
           cmds << setParameter(i, (settings."parameter${i}"!=null||calculateParameter(i)!=null)? calculateParameter(i).toInteger() : getParameterInfo(i, "default").toInteger(), getParameterInfo(i, "size").toInteger())
-          cmds << getParameter(i)
       }
       else {
           //if (infoEnable) log.info "${device.label?device.label:device.name}: Parameter $i already set"
       }
+      // Always fetch the parameter in case it is out of sync with the driver
+      cmds << getParameter(i)
     }
     
     cmds << zwave.versionV1.versionGet()
