@@ -548,7 +548,10 @@ def calculateParameter(number) {
 }
 
 def setConfigParameter(number, value, size) {
-    return command(setParameter(number, value, size.toInteger()))
+    def cmds = []
+    cmds << setParameter(number, value, size.toInteger())
+    cmds << getParameter(number)
+    return commands(cmds)
 }
 
 def setParameter(number, value, size) {
