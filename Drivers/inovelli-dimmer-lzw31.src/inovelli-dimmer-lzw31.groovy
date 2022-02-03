@@ -651,7 +651,7 @@ def getParameterInfo(number, value){
     parameter.parameter2options="0..101"
     parameter.parameter3options="0..101"
     parameter.parameter4options="0..101"
-    parameter.parameter5options="1..45"
+    parameter.parameter5options="1..99"
     parameter.parameter6options="55..99"
     parameter.parameter7options=["1":"Yes", "0":"No"]
     parameter.parameter8options="0..32767"
