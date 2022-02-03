@@ -499,6 +499,16 @@ def initialize() {
 
     def cmds = processAssociations()
     
+    cmds << zwave.versionV1.versionGet()
+    
+    if (state.localProtectionState?.toInteger() != settings.disableLocal?.toInteger() || state.rfProtectionState?.toInteger() != settings.disableRemote?.toInteger()) {
+        //if (infoEnable) log.info "${device.label?device.label:device.name}: Protection command class settings need to be updated"
+        cmds << zwave.protectionV2.protectionSet(localProtectionState : disableLocal!=null? disableLocal.toInteger() : 0, rfProtectionState: disableRemote!=null? disableRemote.toInteger() : 0)
+        cmds << zwave.protectionV2.protectionGet()
+    } else {
+        //if (infoEnable) log.info "${device.label?device.label:device.name}: No Protection command class settings to update"
+    }
+    
     getParameterNumbers().each{ i ->
       if ((state."parameter${i}value" != ((settings."parameter${i}"!=null||calculateParameter(i)!=null)? calculateParameter(i).toInteger() : getParameterInfo(i, "default").toInteger()))){
           //if (infoEnable) log.info "Parameter $i is not set correctly. Setting it to ${settings."parameter${i}"!=null? calculateParameter(i).toInteger() : getParameterInfo(i, "default").toInteger()}."
@@ -509,16 +519,6 @@ def initialize() {
       }
       // Always fetch the parameter in case it is out of sync with the driver
       cmds << getParameter(i)
-    }
-    
-    cmds << zwave.versionV1.versionGet()
-    
-    if (state.localProtectionState?.toInteger() != settings.disableLocal?.toInteger() || state.rfProtectionState?.toInteger() != settings.disableRemote?.toInteger()) {
-        //if (infoEnable) log.info "${device.label?device.label:device.name}: Protection command class settings need to be updated"
-        cmds << zwave.protectionV2.protectionSet(localProtectionState : disableLocal!=null? disableLocal.toInteger() : 0, rfProtectionState: disableRemote!=null? disableRemote.toInteger() : 0)
-        cmds << zwave.protectionV2.protectionGet()
-    } else {
-        //if (infoEnable) log.info "${device.label?device.label:device.name}: No Protection command class settings to update"
     }
     
     if (cmds != []) return cmds else return []
