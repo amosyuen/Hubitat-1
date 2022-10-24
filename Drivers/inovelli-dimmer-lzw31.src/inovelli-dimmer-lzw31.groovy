@@ -121,7 +121,7 @@ metadata {
         capability "HoldableButton"
         capability "ReleasableButton"
         
-        attribute "lastActivity", "String"
+        attribute "lastEventTime", "String"
         attribute "lastEvent", "String"
         attribute "firmware", "String"
         attribute "firmware0", "String"
@@ -888,7 +888,7 @@ def parse(description) {
     now = new Date().format("yyyy MMM dd EEE h:mm:ss a", location.timeZone)
     else
     now = new Date().format("yyyy MMM dd EEE h:mm:ss a")
-    sendEvent(name: "lastActivity", value: now, displayed:false)
+    sendEvent(name: "lastEventTime", value: now, displayed:false)
     result
 }
 

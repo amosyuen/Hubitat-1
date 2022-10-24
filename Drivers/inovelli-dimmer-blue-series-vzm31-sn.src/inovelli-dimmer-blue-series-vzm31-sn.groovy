@@ -159,6 +159,7 @@ metadata {
         attribute "numberOfBindings", "String" //(read only)
         attribute "smartBulb", "String"        //Smart Bulb mode enabled or disabled
         attribute "switchMode", "String"       //Dimmer or On/Off only
+        attribute "lastEventTime", "String"
 
         // Uncomment these lines if you would like to test your scenes with digital button presses.
         /**
@@ -1716,7 +1717,7 @@ def parse(String description) {
             if (infoEnable||debugEnable) log.warn "${device.label?device.label:device.name}: "+fireBrick("Cluster:$clusterHex UNKNOWN CLUSTER" + (debugEnable?"\t$descMap\t${zigbee.getEvent(description)}":""))
             break
     }
-    state.lastEventTime =      nowFormatted() 
+    sendEvent(name: "lastEventTime", value: nowFormatted(), displayed:false)
     state.lastEventCluster =   clusterLookup(clusterHex)
     state.lastEventAttribute = attrInt
     state.lastEventValue =     descMap.value
