@@ -494,6 +494,12 @@ def initialize() {
         childDevice = children.find{it.deviceNetworkId.endsWith("ep102")}
         if (childDevice)
         childDevice.setLabel("${device.displayName} (Disable Remote Control)")
+        childDevice = childDevices.find{it.deviceNetworkId.endsWith("ep103")}
+        if (childDevice)
+        childDevice.setLabel("${device.displayName} (LED Color)")
+        childDevice = childDevices.find{it.deviceNetworkId.endsWith("ep104")}
+        if (childDevice)
+        childDevice.setLabel("${device.displayName} (LED - When Off)")
     }
     state.oldLabel = device.label
 
