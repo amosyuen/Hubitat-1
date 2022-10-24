@@ -228,7 +228,20 @@ metadata {
         
         command "toggle"
         
+        command "childOn", ["string"]
+        command "childOff", ["string"]
+        command "childSetLevel", ["string"]
+        command "childRefresh", ["string"]
+        command "componentOn"
+        command "componentOff"
+        command "componentSetLevel"
+        command "componentRefresh"
+        command "componentSetColor"
+        command "componentSetColorTemperature"
+        
         command "updateFirmware"
+        
+        
 
         fingerprint profileId:"0104", endpointId:"01", inClusters:"0000,0003,0004,0005,0006,0008,0702,0B04,0B05,FC57,FC31", outClusters:"0003,0019",           model:"VZM31-SN", manufacturer:"Inovelli"
         fingerprint profileId:"0104", endpointId:"02", inClusters:"0000,0003",                                              outClusters:"0003,0019,0006,0008", model:"VZM31-SN", manufacturer:"Inovelli"
@@ -346,6 +359,11 @@ metadata {
                     range: "0..360"
             }
         }
+        
+        input description: "Use the below options to enable child devices for the specified settings. This will allow you to adjust these settings using Apps such as Rule Machine.", title: "Child Devices", displayDuringSetup: false, type: "paragraph", element: "paragraph"
+        input "enableLEDChild", "bool", title: "Create \"LED Color\" Child Device", description: "", required: false, defaultValue: true
+        input "enableLED1OffChild", "bool", title: "Create \"LED When Off\" Child Device", description: "", required: false, defaultValue: true
+    
         input name: "infoEnable",          type: "bool",   title: bold("Enable Info Logging"),   defaultValue: true
         input name: "traceEnable",         type: "bool",   title: bold("Enable Trace Logging"),  defaultValue: false
         input name: "debugEnable",         type: "bool",   title: bold("Enable Debug Logging"),  defaultValue: false
@@ -353,6 +371,10 @@ metadata {
         input name: "disableTraceLogging", type: "number", title: bold("Disable Trace Logging"), description: italic("after this number of minutes<br>(0=Do not disable)"),  defaultValue: 10
         input name: "disableDebugLogging", type: "number", title: bold("Disable Debug Logging"), description: italic("after this number of minutes<br>(0=Do not disable)"), defaultValue: 5
     }
+}
+
+private channelNumber(String dni) {
+    dni.split("-ep")[-1] as Integer
 }
 
 def getParameterNumbers() {   //controls which options are available depending on whether the device is configured as a switch or a dimmer.
@@ -926,9 +948,52 @@ def debugLogsOff() {
     device.updateSetting("disableDebugLogging",[value:"0",type:"number"])
 }
 
+def updateChildren() {
+    if (enableLEDChild) addChild("ep95", "LED Color", "hubitat", "Generic Component RGBW", false)
+    else deleteChild("ep95")
+    if (enableLED1OffChild) addChild("ep96", "LED - When Off", "hubitat", "Generic Component Dimmer", false)
+    else deleteChild("ep96")
+    
+    if (device.label != state.oldLabel) {
+        def childDevice = childDevices.find{it.deviceNetworkId.endsWith("ep95")}
+        if (childDevice)
+        childDevice.setLabel("${device.displayName} (LED Color)")
+        childDevice = childDevices.find{it.deviceNetworkId.endsWith("ep96")}
+        if (childDevice)
+        childDevice.setLabel("${device.displayName} (LED - When Off)")
+    }
+    state.oldLabel = device.label
+}
+
+private addChild(id, label, namespace, driver, isComponent){
+    if(!childExists(id)){
+        try {
+            def newChild = addChildDevice(namespace, driver, "${device.deviceNetworkId}-${id}", 
+                    [completedSetup: true, label: "${device.displayName} (${label})",
+                    isComponent: isComponent, componentName: id, componentLabel: label])
+            newChild.sendEvent(name:"switch", value:"off")
+        } catch (e) {
+            runIn(3, "sendAlert", [data: [message: "Child device creation failed. Make sure the driver for \"${driver}\" with a namespace of ${namespace} is installed"]])
+        }
+    }
+}
+
+private deleteChild(id){
+    if(childExists(id)){
+        def childDevice = childDevices.find{it.deviceNetworkId.endsWith(id)}
+        try {
+            if(childDevice) deleteChildDevice(childDevice.deviceNetworkId)
+        } catch (e) {
+            if (infoEnable) log.info "Hubitat may have issues trying to delete the child device when it is in use. Need to manually delete them."
+            runIn(3, "sendAlert", [data: [message: "Failed to delete child device. Make sure the device is not in use by any App."]])
+        }
+    }
+}
+
 def initialize() {    //CALLED DURING HUB BOOTUP IF "INITIALIZE" CAPABILITY IS DECLARED IN METADATA SECTION
     //Typically used for things that need refreshing or re-connecting at bootup (e.g. LAN integrations but not zigbee bindings)
-    if (infoEnable) log.info "${device.label?device.label:device.name}: initialize()"
+    if (infoEnable) log.info "${device.label?device.label:device.name}: initialize()"    
+    updateChildren()
     state.clear()
     def cmds = []
     cmds = refresh()
@@ -1014,6 +1079,90 @@ def off() {
     cmds += zigbee.off(defaultDelay)
     if (traceEnable) log.trace "off $cmds"
     return cmds
+}
+
+def childOn(String dni) {
+    if (infoEnable) log.info "${device.label?device.label:device.name}: childOn($dni)"
+    childSetLevel(dni, 100)
+}
+
+def childOff(String dni) {
+    if (infoEnable) log.info "${device.label?device.label:device.name}: childOff($dni)"
+    childSetLevel(dni, 0)
+}
+
+def childSetLevel(String dni, value) {
+    if (infoEnable) log.info "${device.label?device.label:device.name}: childSetLevel($dni, $value)"
+    state.lastRan = now()
+    def valueaux = value as Integer
+    def level = Math.max(Math.min(valueaux, 100), 0)    
+    def cmds = []
+    def hueParam = channelNumber(dni)
+    def levelParam = hueParam + 2
+    switch (levelParam) {
+        case 97:
+        case 98:
+            cmds += setAttribute(0xfc31, levelParam, calculateSize(configParams["parameter${levelParam.toString().padLeft(3,'0')}"].size), level.toInteger(), ["mfgCode":"0x122F"], setAttrDelay)
+            cmds += getAttribute(0xfc31, levelParam)
+        break
+    }
+	return cmds
+}
+
+void childRefresh(String dni) {
+    if (infoEnable) log.info "${device.label?device.label:device.name}: childRefresh($dni)"
+}
+
+
+def componentSetLevel(cd,level,transitionTime = null) {
+    if (infoEnable) log.info "${device.label?device.label:device.name}: componentSetLevel($cd, $value)"
+	return childSetLevel(cd.deviceNetworkId,level)
+}
+
+def componentOn(cd) {
+    if (infoEnable) log.info "${device.label?device.label:device.name}: componentOn($cd)"
+    return childOn(cd.deviceNetworkId)
+}
+
+def componentOff(cd) {
+    if (infoEnable) log.info "${device.label?device.label:device.name}: componentOff($cd)"
+    return childOff(cd.deviceNetworkId)
+}
+
+void componentRefresh(cd) {
+    if (infoEnable) log.info "${device.label?device.label:device.name}: componentRefresh($cd)"
+}
+
+def componentSetColor(cd,value) {
+    if (infoEnable) log.info "${device.label?device.label:device.name}: componentSetColor($value)"
+	if (value.hue == null || value.saturation == null) return
+	def ledColor = Math.round(value.hue / 100 * 255)
+    def ledLevel = value.level
+	if (infoEnable) log.info "${device.label?device.label:device.name}: Setting LED color value to $ledColor & LED intensity to $ledLevel"
+    def cmds = []
+    def hueParam = channelNumber(cd.deviceNetworkId)
+    if (value.level != null) {
+        def levelParam = hueParam + 2
+        cmds += setAttribute(0xfc31, levelParam, calculateSize(configParams["parameter${levelParam.toString().padLeft(3,'0')}"].size), ledLevel.toInteger(), ["mfgCode":"0x122F"], setAttrDelay)
+        cmds += getAttribute(0xfc31, levelParam)
+    }
+    cmds += setAttribute(0xfc31, hueParam, calculateSize(configParams["parameter${hueParam.toString().padLeft(3,'0')}"].size), ledColor.toInteger(), ["mfgCode":"0x122F"], setAttrDelay)
+    cmds += getAttribute(0xfc31, hueParam)
+    return cmds
+}
+
+def componentSetColorTemperature(cd, value, level = null, duration = null) {
+    if (infoEnable != "false") log.info "${device.label?device.label:device.name}: cd, componentSetColorTemperature($value)"
+    return componentSetColor(cd, [hue: 100, saturation: 100, level: level])
+}
+
+def childExists(ep) {
+    def children = childDevices
+    def childDevice = children.find{it.deviceNetworkId.endsWith(ep)}
+    if (childDevice) 
+        return true
+    else
+        return false
 }
 
 def on() {
@@ -1496,11 +1645,21 @@ def parse(String description) {
                         break
                     case 95:
                     case 96:
-                        infoMsg = infoDev + hue(valueInt,infoTxt + "\t(${Math.round(valueInt/255*360)}°)")
+                        infoMsg = infoDev + hue(valueInt,infoTxt + "\t(${Math.round(valueInt/255*360)}° = ${Math.round(valueInt/255*100)}%)")
+                        def childDevice = childDevices.find{it.deviceNetworkId.endsWith("ep${attrInt}")}
+                        if (childDevice) {
+                            childDevice.sendEvent(name:"hue", value:"${Math.round(valueInt/255*100)}")
+                            childDevice.sendEvent(name:"saturation", value:"100")
+                        }
                         break
                     case 97:  //LED bar intensity when on
                     case 98:  //LED bar intensity when off
                         infoMsg += "%\t(LED bar intensity when " + (attrInt==97?"On)":"Off)")
+                        def childDevice = childDevices.find{it.deviceNetworkId.endsWith("ep${attrInt-2}")}
+                        if (childDevice) {
+                            childDevice.sendEvent(name:"level", value:"${valueInt}")
+                            childDevice.sendEvent(name:"switch", value:"${valueInt>0?"on":"off"}")
+                        }
                         break
                     case 256:    //Local Protection
                         infoMsg += "\t(Local Control " + (valueInt==0?green("enabled"):red("disabled")) + ")"
@@ -1908,6 +2067,9 @@ def updated(option) { // called when "Save Preferences" is requested
     if (infoEnable   && disableInfoLogging)   runIn(disableInfoLogging*60,infoLogsOff)
     if (traceEnable  && disableTraceLogging)  runIn(disableTraceLogging*60,traceLogsOff)
     if (debugEnable  && disableDebugLogging)  runIn(disableDebugLogging*60,debugLogsOff) 
+    
+    updateChildren()
+    
     def changedParams = []
     def cmds = []
     def nothingChanged = true
