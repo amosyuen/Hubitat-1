@@ -1,18 +1,18 @@
 {
-   "author": "Inovelli USA",
+   "author": "Inovelli USA (amosyuen)",
    "gitHubUrl": "https://github.com/InovelliUSA/Hubitat",
    "payPalUrl": "",
    "packages": [
    	{
    		"name": "Inovelli Drivers (Gen 2)",
    		"category": "Control",
-   		"location": "https://raw.githubusercontent.com/InovelliUSA/Hubitat/master/Drivers/driversG2.json",
+   		"location": "https://raw.githubusercontent.com/amosyuen/hubitat-inovelli/master/Drivers/driversG2.json",
    		"description": "Drivers provided by Inovelli"
    	},
       {
    		"name": "Z-Wave Association Tool",
    		"category": "Control",
-   		"location": "https://raw.githubusercontent.com/InovelliUSA/Hubitat/master/Apps/z-waveat.json",
+   		"location": "https://raw.githubusercontent.com/amosyuen/hubitat-inovelli/master/Apps/z-waveat.json",
    		"description": "Inovelli Tool to create direct associations between Z-Wave devices."
    	}
    ]
